@@ -80,13 +80,17 @@ Takeaways:
   score matched the think arm — single-step pivot validation does not predict
   multi-turn agent capability.
 
-### Table 4: train on text, test on audio (tau-voice, half-duplex, 1 trial)
+### Table 4: train on text, test on audio (tau-voice, half-duplex)
 
-| Model | airline | retail | telecom | avg |
+airline is 4 trials (200 sims); retail / telecom are 1 trial (±7 noise at 1σ).
+
+| Model | airline (4 trials) | retail | telecom | avg |
 |---|---|---|---|---|
-| Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16 (no training) | 40.82 | 39.82 | 25.93 | 35.52 |
-| + RL step 470 | 55.10 | 45.13 | 24.56 | 41.60 |
+| Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16 (no training) | 50.26 | 39.82 | 25.93 | 38.67 |
+| + RL step 470 | 56.57 | 45.13 | 24.56 | 42.09 |
 
-Takeaway: the text-only RL transfers to speech input and the gain is larger
-than on text (+6.1 avg, airline +14.3). Voice numbers are 1 trial (±7 noise at
-1σ); a 4-trial confirmation run for airline is in progress.
+Takeaway: the text-only RL transfers to speech input: +6.3 on airline at 4
+trials (~90% confidence), +5.3 on retail (1 trial). The RL checkpoint also
+produces fewer no-output failures (198/200 valid vs 191/200). So although RL
+adds almost nothing on text for this model, it does help in the speech
+setting.
