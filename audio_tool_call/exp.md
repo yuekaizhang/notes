@@ -67,15 +67,13 @@ listen; Chatterbox-Turbo TTS, gpt-5.6-luna user sim).
 | + RL step 470 | 61.31 | 60.09 | 50.44 | 57.28 |
 | + RL step 570 | 60.50 | 62.28 | 47.02 | 56.60 |
 | + RL step 600 | 64.00 | 59.65 | 46.71 | 56.79 |
-| + RL w/ difficulty-filtered data, step 160 | 51.02 | 62.94 | 41.23 | 51.73 |
-| + RL w/ difficulty-filtered data, step 210 | 57.84 | 68.42 | 27.90 | 51.39 |
 | + RL no-think, step 260 | 37.00 | 25.44 | 18.86 | 27.10 |
 
 Takeaways:
 - On text, RL gives Nemotron-3-Nano-Omni almost nothing (55.9 → 57.3 at best); its telecom
   strength is already in the base model.
-- The difficulty-filtered data arm is net negative (retail up, telecom keeps
-  degrading with training).
+- Results for the self-profiled difficulty-filtered data arms are in
+  `exp2.md` Part 2.
 - No-think collapses on the real benchmark even though its training validation
   score matched the think arm — single-step pivot validation does not predict
   multi-turn agent capability.
