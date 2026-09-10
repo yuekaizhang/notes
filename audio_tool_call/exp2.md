@@ -61,10 +61,12 @@ airline: base and step 470 are 4 trials (200 sims); GSPO step 420 is 1 trial
 | + Pivot RL, GSPO+TIS (step 420) | 54.35* | 38.36** | 20.19 | 37.63 |
 
 `*` 46/50 scored (4 empty-output runner errors).
-`**` only 73/114 scored (41 runaway-thinking failures) — provisional; see
-note 4: the same 40 tasks also failed in one base-model run while a repeat
-base run scored 113/114, so the failures appear run-conditioned. A rerun of
-this cell is in flight.
+`**` only 73/114 scored. Root-caused 2026-09-10: the 40-task failing set is
+exactly the 40 retail tasks with `nl_assertions` — the batch voice job script
+was missing the `TAU2_NL_ASSERTIONS_MODEL` judge routing, so the default
+gpt-4.1 judge was rejected by the gateway and those simulations errored at
+scoring. Not a model failure; the script is fixed and affected cells need
+rerunning (see exp3.md for the corrected tis_410 number).
 
 Analysis
 
@@ -76,15 +78,20 @@ Analysis
    shows up in voice telecom (assistant text-turn ratio 0.65 vs 0.72),
    where the deficit repeats (20.2 vs 24.6).
 
-2. **Runaway thinking on voice retail is run-conditioned, not (only)
-   checkpoint-conditioned.** 40 specific retail tasks made one base run and
-   the GSPO run burn the entire reasoning budget and emit nothing (identical
-   40/40 failing set; raising the budget 16K→20K did not help, and normal
-   turns need only p99 ≈ 5.5K tokens). But a repeat base run scored 113/114
-   on the same tasks with max observed reasoning of 7.5K — the trigger is
-   likely run-level audio/pipeline state that induces unbounded reasoning,
-   not a stable checkpoint property. Voice-retail numbers are only
-   comparable between runs with similar scored coverage.
+2. **Correction (2026-09-10): the reproducible 40-task voice-retail failure
+   set was an evaluation-harness bug, not model runaway.** Those 40 tasks are
+   exactly the retail tasks scored by the `nl_assertions` LLM judge; batch
+   voice jobs lacked the judge-routing env (`TAU2_NL_ASSERTIONS_MODEL`), the
+   default gpt-4.1 was rejected by the gateway, and the simulations errored
+   at scoring. Runs made interactively (with the env set) were unaffected —
+   which produced the misleading "some checkpoints are immune" pattern.
+   Genuine model-side empty outputs do exist but are smaller and stochastic
+   (airline ~8/50, telecom ~20-30% for the TIS checkpoint): captured dumps
+   show repetition loops over structural tokens (template markers, tool
+   schema tags, policy sentences) either burning the full budget
+   (finish=length) or ending in early EOS after echoing the policy in
+   training-render format. Mitigations: repetition_penalty at serving,
+   retry-on-empty, and fixing the training-side system-content rendering.
 
 ---
 

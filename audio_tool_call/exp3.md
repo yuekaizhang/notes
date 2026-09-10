@@ -1,0 +1,122 @@
+# 对话工具调用 Pivot RL — 实验记录 3（TIS 消融臂 与 论文数据臂）
+
+承接 `exp2.md`。所有 tau2-bench 数字为 average reward（×100），每任务 4 trials，
+gpt-5.6-luna 用户模拟器；telecom 拆两个 57 任务半场后合并。tau-voice 为半双工
+语音评测（用户轮为 Chatterbox-Turbo TTS 音频，agent 听音频、文本作答）。
+
+基座模型：Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16。
+
+---
+
+## Part 1: TIS 消融臂（token 级 loss + TIS 防漂，公开 96K 数据）
+
+### 配置
+
+exp2 Part 1 的 GSPO+TIS 配置基础上，只翻两个开关做消融：
+`sequence_level_importance_ratios: false` + `token_level_loss: true`（即回到
+普通 GRPO 的 token 级 loss），保留全部防漂组件（token 级 IS 修正 + TIS 截断
+5.0、序列熔断阈值 1.5、clip 0.28、overlong filtering）。数据与 think 基线相同
+（公开 96K pivot 集），训满 600 步。
+
+训练侧结论：token_mult_prob_error 全程平稳（~1.07），确认**防漂效果归属
+TIS/阈值组件，与 GSPO 无关**（归因闭环）。
+
+### tau2-bench 解码结果
+
+| ckpt | 内部 val | airline | retail | telecom (t1/t2) | 三域均值 |
+|---|---|---|---|---|---|
+| step_350 | 0.384 | 62.6* | 67.8 | 42.7 (60.5/25.0) | 57.7 |
+| **step_410** | **0.406** | 63.5 | **71.7** | 41.5 (59.7/23.3) | **58.9** |
+| step_470 | 0.393 | **65.3** | 68.6 | 36.8 (54.0/19.6) | 56.9 |
+
+`*` 已合并 infra-error 任务的定向重跑。
+
+对照（同协议）：基座 55.9 / plain GRPO think470 57.3 / GSPO420 56.5 /
+2507 RL step360 58.7。
+
+要点：
+- 臂内单峰：350→410 上升、470 回落（airline 独涨但 telecom 下滑），**410 为
+  甜点**；
+- **tis_410 = 58.9 是 nano 系全场第一**，唯一超基座 3 个点的检查点，追平
+  2507 的 RL 臂；
+- 三域画像：retail 强（71.7）、airline 强（63.5）；telecom 与其他新配方臂
+  同档（41-43），仍低于 think470 的 50.4（后者疑似正向离群，其 t1 半场 79.8
+  远超所有臂的 54-65，待复核）。
+
+### tau-voice 解码结果（tis_410，retail/telecom 跑了两轮验证）
+
+| 域 | 计分均值 | 覆盖率 | 对照 think470 |
+|---|---|---|---|
+| airline | **59.5** | 42/50（8 条空输出） | 56.6（4 trials） |
+| retail（judge 修复后重跑） | **46.9** | **113/114** | 45.1（113/114） |
+| telecom | 31.3 / 28.4（两轮共同任务） | 81-91/114（空输出随机发作） | 24.6 |
+
+- 勘误（2026-09-10）：早前两轮 retail 稳定失败的"40 任务"实为**评测脚本缺
+  judge 路由环境变量**（`TAU2_NL_ASSERTIONS_MODEL`）——这 40 个恰是 retail 全部
+  带 `nl_assertions` 的任务，默认 gpt-4.1 judge 被网关拒绝导致判分报错，与模型
+  无关；修复后全量重跑得 46.9（113/114），略超 think470；
+- 真实的模型侧空输出是**随机发作**（airline 8/50、telecom 20-29%，两轮任务重合
+  仅 9 个）：调试打点显示为**结构 token 上的重复循环**（臆造模板标记/工具
+  schema 标签/政策句子循环至烧满预算，或复读政策后提前 EOS）。假说：TIS 权重
+  静音了脆弱结构 token 的梯度，同时也削弱了"学会不重复"的信号（待消融验证）。
+  缓解：serving 加 repetition_penalty、空输出重试；治本：修训练侧 system 渲染。
+
+**voice 综合评价**：tis_410 三域全部 ≥ think470（airline +2.9 / retail +1.8 /
+telecom 共同任务 +5），但空输出发作率高于 470，需配 retry/repetition penalty。
+
+---
+
+## Part 2: 论文数据臂 d60（train_difficulty_60，think 配方不变）
+
+### 数据
+
+论文原始训练集 `train_difficulty_60.jsonl`：由 **Qwen3-30B-A3B-Thinking-2507
+自画像**（即论文的 reference policy π₀，16 rollouts/条，temp 0.6/top_p 0.95），
+保留 reward_mean ≤ 0.6（≤9/16 对）的行，共 314,565 行。注意行内字段名
+`qwen_235b_info` 是 2025-12 旧管线（当时用 Qwen3-235B-thinking 画像）的遗留
+命名，2026-01 这版数据实为 30B 自画像。难度分布极度左偏：全错（0/16）占
+43.6%，1/16 档占 9.7%，其余 2-9/16 各档约 5-7%，均值 0.163。
+
+移植警示：该画像是 qwen30b 的自画像；给 nano 训练时难度不迁移（nano 实际
+train reward ~0.43，远高于设计均值 0.163）。使用前的
+处理：agent_ref 旧名 `single_step_tool_simulation_agent` 改写为现行服务名；
+按内容哈希剔除与标准 512 行 val 重叠的 60 行 → 实际训练集 **314,505 行**。
+val 不变（标准 512 行）。
+
+### 配置
+
+严格复用 think 基线配方（plain GRPO、token 级 loss、clip 0.2/0.2、无 IS
+修正），**唯一变量是训练数据**。原计划 800 步，训至 785 步观察到明确退化
+趋势后停止。
+
+### tau2-bench 解码结果
+
+| ckpt | 内部 val | airline | retail | telecom (t1/t2) | 三域均值 |
+|---|---|---|---|---|---|
+| step_380 | 0.383 | 56.2* | 未测 | 未测 | — |
+| step_410 | 0.385 | 52.8 | **73.7** | 40.2 (60.4/20.1) | 55.6 |
+| step_600 | 0.407 | **45.7** | 67.0 | 40.0 (60.9/19.1) | **50.9** |
+
+`*` 已合并 infra-error 任务的定向重跑。未做 voice 评测。
+
+要点：
+- **单调的偏科交易**：retail 一度冲到全场最高的 73.7（比基座 +9.4），
+  telecom t1 半场稳定在 60-62（各臂最高档）；但 **airline 随训练崩塌**
+  （基座 58.5 → 56.2@380 → 52.8@410 → 45.7@600，-13 个点）；
+- 三域均值从未超过基座（55.9），600 步时跌至 50.9；
+- 内部 val 却在 600 步创臂内新高（0.407）——又一例 val 与真实评测背离；
+- **结论**：论文数据的域增益真实存在（retail/telecom 流程型任务），但对
+  nano 是失衡交易，整包替换不可取。
+
+---
+
+## 综合结论
+
+1. **nano 最终推荐配方 = token 级 GRPO + TIS 防漂栈（tis_410）**：tau2 58.9
+   全场第一，voice 计分集三域领先；已转 HF
+   （`tau2_eval/ckpts/nano_tis_step410_hf`）。
+2. **TIS 与 d60 是一组镜像**：前者是均衡增益（三域全不拖后腿），后者是
+   偏科交易（retail 史高、airline 史低）。若要两全，方向是"TIS 配方 ×
+   论文数据的 retail/telecom 子集掺混"，而非整包替换。
+3. 两臂再次共同印证：**内部 val 与真实评测可以背离**（d60 的 val 新高 =
+   tau2 新低），checkpoint 选点必须过 benchmark 快筛。
