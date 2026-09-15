@@ -43,9 +43,11 @@
 - **训练**：`nemo_rl.0821.sqsh`（vLLM ≥0.25.x；0724 镜像会 ImportError）。
 - **文本评测**：`nemo_rl.0803.sqsh`（评测脚本依赖其 /opt/ray_venvs 布局）。
 - 镜像目录：`/lustre/fsw/portfolios/coreai/users/yuekaiz/containers/`。
-- **更新镜像的兼容性坑**（2026-09-11 实测）：更新的镜像带 transformers
-  ≥5.12，会触发 `nemo_rl/models/policy/__init__.py` 里 deepseek_v3
-  tokenizer 补丁的版本断言——分支上已改为 ≥5.12 直接跳过补丁（上游已修）。
+- **更新镜像的兼容性坑**（0831 实测，2026-09-11）：① transformers ≥5.12
+  触发 `nemo_rl/models/policy/__init__.py` 的 deepseek_v3 补丁断言——分支
+  已改为 ≥5.12 跳过（上游已修）；② 缺 Gym 依赖 `gprof2dot`，需装进
+  `/opt/nemo_rl_venv` **和** `/opt/ray_venvs/nemo_rl.environments.nemo_gym.NemoGym`
+  两个 venv（ray actor 各有独立 venv）。
 - 关键机制：**PYTHONPATH 仓库前置**（launcher 的 COMMAND 里 export），让工作树
   的 nemo_rl / Gym / Megatron-Bridge 压过镜像内置版本——改代码不用重打镜像。
 

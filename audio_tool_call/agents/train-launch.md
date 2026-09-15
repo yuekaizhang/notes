@@ -80,6 +80,40 @@ bash yuekai_scripts/run_nano_omni_smoke_1n8g.sh \
 单节点必须压小）。冒烟通过标准：完成 2 个 step、loss/token_mult_prob_error
 正常打印、无 OOM。
 
+## 1n8g 长跑（部分验证后放弃，2026-09-11）
+
+stock 配置在单节点**新开跑没问题**（唯一必须覆盖 `cluster.num_nodes=1`；
+TP8/EP8 单节点自包含，实测 ~387s/步，只比 4n8g 慢 1.8 倍），第一窗训到
+step_35 全程健康。**但断点续跑必挂**：DP=1 时 Adam 状态不能沿 DP 分片，
+每卡"权重+fp32主参数+Adam" ~71GB 贴顶，resume 加载 checkpoint 的临时
+拷贝（~2GB）叠上 vLLM sleep 免不掉的残留（2 引擎 CUDA context+graphs
+~5GB）就 OOM——新开跑没有这步所以能过。已排除的方案：vLLM 显存比
+0.5→0.35（残留不随它变）、expandable_segments（缺口>碎片）、部分优化器
+CPU offload（框架只支持 fraction=1.0）、TP1+EP8（加载能过但关 SP 后
+训练步 backward OOM）。**理论可行方案（未走完验证）**：生成侧改
+vLLM TP8 单引擎 + enforce_eager——这正是上游官方 1n8g 配方
+`vlm_grpo-nemotron-omni-30ba3b-clevr-1n8g-megatron-tp8ep8.v1.yaml`
+的配置，代价是生成段慢 ~30-40%。最终决定回 4n8g。提交方式（存档）：
+
+```bash
+CONFIG_PATH=... NUM_NODES=1 JOB_NAME=<独立名> SBATCH_PARTITION=interactive \
+EXTRA_OVERRIDES_STR="grpo.max_num_steps=600 logger.wandb.name=<独立名>" \
+bash yuekai_scripts/submit_tau1_4n8g.sh   # 连提 N 次成链
+```
+
+- interactive 分区同样 4h 上限，singleton 链照用；JOB_NAME/wandb 名必须
+  与 4n8g 臂区分开（singleton 按名字去重，撞名会互相串行）。
+- vLLM 可降 TP2（4 引擎提吞吐），但必须配
+  `++policy.generation.vllm_kwargs.max_num_batched_tokens=4096`——nano 的
+  mamba 缓存页 TP2 时 2096 > vLLM 默认调度上限 2048（TP4 无此问题）。
+
+**必须走 sbatch ray.sub 提交训练，不要用 slurm-broker MCP 直接起容器**：
+broker 容器会把用户 home 挂到 /root 上，遮住镜像的 /root/.cache/uv——
+而 0821 镜像 /opt/nemo_rl_venv 的包文件全是软链进那个 cache 的
+（uv symlink link-mode），结果 venv"目录在、文件全悬空"（click 变
+namespace 包等诡异报错）。ray.sub 的 `--no-container-mount-home` 正是
+为保住镜像 /root 而存在（eval 脚本注释"do NOT hand-roll sbatch"同源）。
+
 ## 训练健康指标（wandb）
 
 - `token_mult_prob_error`：防漂核心指标，TIS 配方下应全程 ~1.07 平稳；

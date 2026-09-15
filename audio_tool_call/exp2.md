@@ -22,7 +22,7 @@ positions, and fp32 does not reconcile them. No single engine is buggy; the
 mismatch is a property of how far the weights drift off the pretrained
 manifold, and the uncorrected gradient feeds back into more drift.
 
-![gen_kl_error fix: baseline think arm (pink) vs GSPO+TIS arm (gray)](tis_fix.png)
+![gen_kl_error fix: baseline think arm (pink) vs GSPO+TIS arm (gray)](tis_fix_new.png)
 
 Figure: baseline think arm (pink) vs the fixed run (gray). Validation
 accuracy and train reward are unaffected, while `gen_kl_error`,
@@ -43,11 +43,42 @@ YAML changes relative to the baseline think arm (`loss_fn` unless noted):
 
 ### Table 1: tau2-bench, text (luna user sim)
 
+Full checkpoint curves for the GSPO+TIS arm and the TIS-only ablation arm
+(token-level GRPO + full TIS protective stack, same data) were batch-decoded
+2026-09-12..15. telecom = mean of the two 57-task halves. Best checkpoint of
+each experiment in **bold**.
+
 | Model | airline | retail | telecom | avg |
 |---|---|---|---|---|
 | Nemotron-3-Nano-Omni (no training) | 58.50 | 64.25 | 44.96 | 55.90 |
 | + Pivot RL, plain GRPO (step 470) | 61.31 | 60.09 | 50.44 | **57.28** |
-| + Pivot RL, GSPO+TIS (step 420) | 60.80 | 62.72 | 46.08 | 56.53 |
+| GSPO+TIS, step 110 | 58.50 | 62.28 | 43.65 | 54.81 |
+| GSPO+TIS, step 160 | 57.00 | 63.82 | 46.05 | 55.62 |
+| GSPO+TIS, step 200 | 55.78 | 59.21 | 45.62 | 53.54 |
+| GSPO+TIS, step 300 | 56.50 | 66.89 | 36.19 | 53.19 |
+| GSPO+TIS, step 350 | 56.28 | 65.35 | 34.87 | 52.17 |
+| **GSPO+TIS, step 420** | 60.80 | 62.72 | 46.08 | **56.53** |
+| GSPO+TIS, step 570 | 55.56 | 64.40 | 29.61 | 49.86 |
+| GSPO+TIS, step 600 | 56.50 | 56.58 | 31.36 | 48.15 |
+| TIS-only, step 110 | 57.73 | 64.91 | 43.54 | 55.39 |
+| TIS-only, step 200 | 57.07 | 68.20 | 37.01 | 54.09 |
+| TIS-only, step 260 | 64.62 | 64.91 | 40.45 | 56.66 |
+| TIS-only, step 290 | 61.03 | 68.42 | 35.37 | 54.94 |
+| TIS-only, step 300 | 63.59 | 65.35 | 37.30 | 55.41 |
+| TIS-only, step 350 | 62.60 | 67.76 | 42.73 | 57.70 |
+| TIS-only, step 410 | 63.49 | 71.71 | 41.53 | 58.91 |
+| TIS-only, step 460 | 63.92 | 71.05 | 42.08 | 59.02 |
+| TIS-only, step 470 | 65.31 | 68.64 | 36.79 | 56.91 |
+| **TIS-only, step 600** | **68.45** | **74.34** | **48.69** | **63.83** |
+
+Takeaways: the GSPO arm is single-peaked at step 420 and degrades hard
+afterwards (telecom 46.1 → 29.6/31.4; the tool-calling bias below compounds
+with training). The TIS-only arm, previously believed to peak at 410 from a
+3-point screen, in fact climbs monotonically through 600: airline
+63.5→68.5, retail 71.7→74.3, and telecom t1 hits 72.6 at step 600 — the
+best t1 of any arm. **tis step 600 = 63.83 is the overall record** (+7.9
+over base, +4.9 over the previous champion tis_410); training stopped at
+600 only because of the step budget, so the curve may not have peaked.
 
 ### Table 2: tau-voice, half-duplex speech input
 
@@ -59,14 +90,13 @@ airline: base and step 470 are 4 trials (200 sims); GSPO step 420 is 1 trial
 | Nemotron-3-Nano-Omni (no training) | 50.26 | 39.82 | 25.93 | 38.67 |
 | + Pivot RL, plain GRPO (step 470) | 56.57 | 45.13 | 24.56 | **42.09** |
 | + Pivot RL, GSPO+TIS (step 420) | 54.35* | 38.36** | 20.19 | 37.63 |
+| + Pivot RL, TIS-only (step 600) | 72.73*** | 46.36 | 25.32*** | **48.14** |
 
 `*` 46/50 scored (4 empty-output runner errors).
-`**` only 73/114 scored. Root-caused 2026-09-10: the 40-task failing set is
-exactly the 40 retail tasks with `nl_assertions` — the batch voice job script
-was missing the `TAU2_NL_ASSERTIONS_MODEL` judge routing, so the default
-gpt-4.1 judge was rejected by the gateway and those simulations errored at
-scoring. Not a model failure; the script is fixed and affected cells need
-rerunning (see exp3.md for the corrected tis_410 number).
+`**` only 73/114 scored on this early run (evaluation-harness scoring issue,
+since fixed; corrected reruns in exp3.md).
+`***` TIS-only step 600 coverage: airline 33/50 scored, retail 110/114,
+telecom 79/114 — see Analysis item 2 for the invalid-answer breakdown.
 
 Analysis
 
@@ -78,24 +108,41 @@ Analysis
    shows up in voice telecom (assistant text-turn ratio 0.65 vs 0.72),
    where the deficit repeats (20.2 vs 24.6).
 
-2. **Correction (2026-09-10): the reproducible 40-task voice-retail failure
-   set was an evaluation-harness bug, not model runaway.** Those 40 tasks are
-   exactly the retail tasks scored by the `nl_assertions` LLM judge; batch
-   voice jobs lacked the judge-routing env (`TAU2_NL_ASSERTIONS_MODEL`), the
-   default gpt-4.1 was rejected by the gateway, and the simulations errored
-   at scoring. Runs made interactively (with the env set) were unaffected —
-   which produced the misleading "some checkpoints are immune" pattern.
-   Genuine model-side empty outputs do exist but are smaller and stochastic
-   (airline ~8/50, telecom ~20-30% for the TIS checkpoint): captured dumps
-   show repetition loops over structural tokens (template markers, tool
-   schema tags, policy sentences) either burning the full budget
-   (finish=length) or ending in early EOS after echoing the policy in
-   training-render format. Mitigations: repetition_penalty at serving,
-   retry-on-empty, and fixing the training-side system-content rendering.
+2. **TIS-only step 600 on tau-voice: strong scores, but a large and growing
+   invalid-answer rate.** Unanswered counts: airline 17/50 (34%), retail
+   4/114, telecom 35/114 (31%). Every one fails with the same runner error
+   (`AssistantMessage must have either content or tool_calls`) — a genuine
+   model-side empty output: the model enters a repetition loop over
+   structural tokens during the reasoning phase (invented template markers,
+   tool-schema tags, policy sentences), either burning the full token budget
+   or ending in an early EOS with no final message. The failing set is
+   random across task families and personas, and the rate grows
+   monotonically with TIS training (airline: base 2-6% → step 410 16% →
+   step 600 34%) — consistent with the hypothesis that the TIS weights
+   silence gradients at fragile structural tokens and with them the
+   "don't repeat" learning signal. On the scored sets the gains are real,
+   not a survivor-selection artifact: paired on common scored tasks vs step
+   410, airline +13.8, retail +1.4, telecom +3.2 — all three domains
+   improve. Net: step 600 is the strongest checkpoint but the least
+   reliable; serving needs retry-on-empty / repetition_penalty, and the
+   ratio_min-floor arm (clamping TIS weights to [0.1, 5.0]) is the candidate
+   root fix under evaluation.
 
 ---
 
-## Part 2: Self-profiled difficulty-filtered data
+## Part 2: Difficulty-filtered data (self-profiled subsets & the paper's d60 set)
+
+### Data provenance (who profiled what)
+
+All difficulty filters share the same rule (keep rows with profile score
+0 ≤ reward_mean ≤ 0.6) but differ in the *profiling model*, which turns out
+to matter enormously (difficulty does not transfer across models):
+
+| Dataset | source pool | profiling model | rows |
+|---|---|---|---|
+| public HF 96K set (our default training data) | 1.4M raw pivot pool | **Super3** (Nemotron-Super) profile, 0 ≤ score ≤ 0.6 | 96,456 |
+| d60 (`train_difficulty_60`, the Pivot-RL paper's training set) | 1.4M raw pivot pool | **Qwen3-think** self-profile (16 rollouts), 0 ≤ score ≤ 0.6 | 314,565 |
+| subsets A/B below | the public HF 96K set, filtered FURTHER | **nano-omni** self-profile (8 rollouts) | 28,538 / 66,522 |
 
 ### Data: nano-omni self-rollout profiling
 
@@ -172,3 +219,38 @@ tau-voice, airline (1 trial): B step 390 = 19.15 (47/50 scored), B step 440 =
   and the internal validation set (same lenient verifier) cannot see the
   damage (its curve sat at an unremarkable ~0.35 throughout).
 
+### Arm C: the paper's d60 data (Qwen3-think profile), plain GRPO recipe
+
+Strict replication of the think-baseline recipe (plain GRPO, token-level
+loss, no IS correction) with the training data swapped wholesale for the
+paper's `train_difficulty_60` (Qwen3-think self-profile — see the provenance
+table; 60 rows overlapping our standard 512-row val set removed → 314,505
+training rows; val unchanged). Planned 800 steps, stopped at 785 on clear
+degradation. Full checkpoint curve batch-decoded 2026-09-12..14 (same
+protocol as Table 1; best checkpoint in **bold**):
+
+| Model | airline | retail | telecom | avg |
+|---|---|---|---|---|
+| Nemotron-3-Nano-Omni (no training) | 58.50 | 64.25 | 44.96 | 55.90 |
+| d60, step 200 | 54.17 | 66.96 | 38.00 | 53.04 |
+| d60, step 340 | 45.56 | 70.64 | 42.78 | 52.99 |
+| d60, step 350 | 51.20 | 69.23 | 46.02 | 55.48 |
+| d60, step 380 | 56.20 | 72.61 | (not run) | — |
+| d60, step 410 | 52.76 | 73.68 | 40.23 | 55.56 |
+| **d60, step 460** | 55.17 | 71.46 | 41.89 | **56.17** |
+| d60, step 570 | 52.46 | 70.29 | 38.28 | 53.68 |
+| d60, step 590 | 55.25 | 70.51 | 37.47 | 54.41 |
+| d60, step 600 | 45.70 | 67.00 | 40.00 | 50.90 |
+| d60, step 700 | 46.94 | 65.05 | 37.70 | 49.90 |
+| d60, step 780 | 41.49 | 68.57 | (not run) | — |
+| d60, step 785 | 39.25 | 67.33 | 33.73 | 46.77 |
+
+Reading the full curve (vs the original 3-point screen at 380/410/600):
+retail is a genuine, stable gain (67-74 throughout, peaks 73.7); airline is
+NOT a monotonic collapse before step 600 — it oscillates ±5 around 52-56
+(dips at 340/600 recover at 380/460) — and only truly falls off a cliff
+after 600 (700: 46.9 → 785: 39.3). The best checkpoint d60_460 (56.17)
+still never beats base (55.90) on the 3-domain average, so the conclusion
+stands: the paper data's domain gains are a rebalancing trade, not a net
+win, when swapped in wholesale for nano — but the practical damage window
+is later than the first screen suggested.
