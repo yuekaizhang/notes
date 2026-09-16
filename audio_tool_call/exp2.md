@@ -235,9 +235,9 @@ protocol as Table 1; best checkpoint in **bold**):
 | d60, step 200 | 54.17 | 66.96 | 38.00 | 53.04 |
 | d60, step 340 | 45.56 | 70.64 | 42.78 | 52.99 |
 | d60, step 350 | 51.20 | 69.23 | 46.02 | 55.48 |
-| d60, step 380 | 56.20 | 72.61 | (not run) | — |
+| **d60, step 380** | 56.20 | 72.61 | 46.18 (68.14/24.22) | **58.33** |
 | d60, step 410 | 52.76 | 73.68 | 40.23 | 55.56 |
-| **d60, step 460** | 55.17 | 71.46 | 41.89 | **56.17** |
+| d60, step 460 | 55.17 | 71.46 | 41.89 | 56.17 |
 | d60, step 570 | 52.46 | 70.29 | 38.28 | 53.68 |
 | d60, step 590 | 55.25 | 70.51 | 37.47 | 54.41 |
 | d60, step 600 | 45.70 | 67.00 | 40.00 | 50.90 |
@@ -249,8 +249,11 @@ Reading the full curve (vs the original 3-point screen at 380/410/600):
 retail is a genuine, stable gain (67-74 throughout, peaks 73.7); airline is
 NOT a monotonic collapse before step 600 — it oscillates ±5 around 52-56
 (dips at 340/600 recover at 380/460) — and only truly falls off a cliff
-after 600 (700: 46.9 → 785: 39.3). The best checkpoint d60_460 (56.17)
-still never beats base (55.90) on the 3-domain average, so the conclusion
-stands: the paper data's domain gains are a rebalancing trade, not a net
-win, when swapped in wholesale for nano — but the practical damage window
-is later than the first screen suggested.
+after 600 (700: 46.9 → 785: 39.3). With the late-arriving telecom halves,
+**d60 step 380 (58.33) does beat base (55.90) by +2.4** — retail 72.6 and
+telecom 46.2 with airline roughly held (56.2). So the earlier "never beats
+base" conclusion (drawn from the 410/600 screen) needs revising: wholesale
+replacement has a real sweet spot around step 380, second only to the
+TIS-only arm's 63.8. It remains a fragile trade, though — ±30 steps in
+either direction give the airline dip (340: 53.0) or the slide toward 410's
+55.6, and everything after 600 is unusable.
