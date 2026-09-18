@@ -1,6 +1,6 @@
 # Nano-Omni Pivot-RL 实验与解码结果总表（交接用）
 
-覆盖所有 nano-omni 相关实验（截至 2026-09-17）。通用信息：
+覆盖所有 nano-omni 相关实验（截至 2026-09-18;#11-#13 为新集群 GB200 上的实验，ckpt/traces 路径待补）。通用信息：
 
 - **基座模型**：`nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16`（HF snapshot 在
   `$HF_HOME/hub/models--nvidia--Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16/`，
@@ -33,8 +33,13 @@
 | 8 | tis-dadv0 | `tau1-nano-tis-dadv0-4n8g` | #4 栈 + **净模板** + dadv0 数据 | dadv0（同 #6） | `results/tau1-nano-tis-dadv0-4n8g/...`（仅 step_82） | `nano_tisdadv0_step82_hf`（评测副本已打净模板） | 82 步早停;**未评测** |
 | 9 | ctpl（对照 A） | `tau1-nano-tis-cleantpl-4n8g` | #4 栈 + **净模板**（单变量对照） | HF 公开 96K | `results/tau1-nano-tis-cleantpl-4n8g/...` | `nano_ctpl_step{160,290,410,420,470,560,570,600}_hf` | 完成 600 步 |
 | 10 | rmin（对照 B） | `tau1-nano-tis-rmin-4n8g` | #9 + `ratio_min 0.1`（IS 权重钳 [0.1,5]） | HF 公开 96K | `results/tau1-nano-tis-rmin-4n8g/...`（至 step_491） | `nano_rmin_step{110,200,260,290,360,410,460}_hf` | ~491 步停（让位其他实验） |
+| 11 | tis-dadv（新集群 GB200） | `nano-omni-tis-dadv-4n4g` | #9 栈（TIS token 级、cap 5.0、seq 熔断 1.5、clip 0.28、净模板）+ on-policy KL 近似 + overlong filtering;4n×4g，Megatron TP4/EP4、vLLM TP4、DP4，lr 3e-6，64 prompt×16 gen | nano 自画像 dadv（同 #5）28,538 行;**function_call 75.3% / message 24.7%，其中转人工类 tool call 占全体 17.5%** | —（新集群，待补） | —（待补;已解码 step 150/210/260/300/360） | 完成 380 步 |
+| 12 | tis-all100k（新集群） | `nano-omni-tis-all100k-4n4g` | 同 #11，仅换 train 数据 | `all_100k_fiter` 24,984 行;**function_call 86.2% / message 13.8%，转人工 18.5%** | —（待补） | —（待补;已解码 step 90/130/190） | 220 步取消（结果差） |
+| 13 | tis-rand30k（新集群） | `nano-omni-tis-rand30k-4n4g` | 同 #11，仅换 train 数据 | `nano_omni_rescore_partial_30k` 随机抽样、**无难度过滤** 30,000 行;**function_call 46.9% / message 53.1%，转人工 8.6%** | —（待补） | —（待补;已解码 step 70/150/300） | 完成 380 步 |
 
 另有废弃尝试：1n8g rmin 长跑（`results/tau1-tis-rmin-1n8g`，step_35，resume 显存悬崖放弃，见 agents/train-launch.md）。
+新集群（GB200，单节点仅 4 GPU / 942GB 主存）上 #11 的 1n4g 尝试因 checkpoint 存 optimizer 时主机内存 OOM 放弃，改为 4 节点 DP4 分片;
+#11-#13 训练提交脚本为 RL 仓库 `yuekai_scripts/submit_tis_dadv_1n8g.sh`（ray.sub + singleton 4h 链），解码提交脚本 `yuekai_scripts/submit_tau2_text_eval.sh`（每域一个 1n4g job，telecom 拆 t1/t2）。
 
 ## 表 2 · tau2-bench 文本解码（avg reward ×100;每任务 4 trials;空输出算 0 计入）
 
@@ -62,6 +67,41 @@ sims/总 sims。traces 已统一整理到 `$TR = /lustre/fsw/portfolios/coreai/u
 | ctpl600 (#9) | 54.27 | 64.91 | 37.15 | 52.11 | air 1/200 | **净** | `ctpl/step_600/tau2_text/` |
 | rmin260 (#10 最优) | 59.90 | 61.84 | 46.21 | **55.98** | ~0 | **净** | `rmin/step_260/tau2_text/` |
 | rmin460 (#10) | 59.28 | 62.28 | 41.69 | 54.42 | 少 | **净** | `rmin/step_460/tau2_text/` |
+
+### 表 2b · 新集群解码（#11-#13 及 base 复测;协议同上，全部为新集群同一装置）
+
+同一脚本从 results.json 重算（reward_info 为空的出错 sim 按 0 计）;telecom 列为 t1/t2 两半场均值。
+新集群 base 复测比表 2 老集群 base 低约 3 分（脏 52.3 vs 55.9），**跨表比较请以本表 base 为基准**。
+空输出列为最终记为 infra error 的 sim 数（3 次重试均空），**全部出在 airline**;
+注意 tau2 会把空输出的 sim 整个丢弃重跑，被重试吞掉的空输出约占全部尝试的 5%（base 1.6-2.0%，训练后 0.6-5.5%，
+详见下方"空输出"说明），results 里看不到。traces 路径待补。
+
+| 实验/ckpt | airline | retail | telecom (t1/t2) | 三域均值 | 文本空输出 | 模板 | traces |
+|---|---|---|---|---|---|---|---|
+| base（新集群复测） | 53.5 | 61.8 | 41.7 (29.4/53.9) | 52.3 | 0 | 脏 | — |
+| base（新集群复测） | 63.0 | 60.5 | 37.3 (28.5/46.1) | **53.6** | air 1/200 | **净** | — |
+| dadv_150 (#11) | 55.0 | 66.7 | 30.0 (17.5/42.5) | 50.6 | air 4/200 | 净 | — |
+| dadv_150 (#11，脏模板对照) | 51.0 | 63.4 | 33.3 (18.4/48.2) | 49.2 | air 3/200 | 脏 | — |
+| dadv_210 (#11) | 53.0 | 61.4 | 26.5 (11.0/42.1) | 47.0 | air 1/200 | 净 | — |
+| dadv_260 (#11) | 56.0 | 65.8 | 24.8 (7.9/41.7) | 48.9 | 0 | 净 | — |
+| dadv_300 (#11) | 53.0 | 63.6 | 25.2 (9.6/40.8) | 47.3 | air 1/200 | 净 | — |
+| dadv_360 (#11) | 50.5 | 65.8 | 27.0 (9.6/44.3) | 47.8 | 0 | 净 | — |
+| all100k_90 (#12) | 45.5 | 50.2 | 21.1 (7.9/34.2) | 38.9 | 0 | 净 | — |
+| all100k_130 (#12) | 43.5 | 30.3 | 18.9 (3.1/34.6) | 30.9 | 0 | 净 | — |
+| all100k_190 (#12) | 46.0 | 30.7 | 18.6 (1.3/36.0) | 31.8 | air 1/200 | 净 | — |
+| rand30k_70 (#13) | 54.5 | 65.8 | 36.2 (27.2/45.2) | **52.2** | air 1/200 | 净 | — |
+| rand30k_150 (#13) | 50.5 | 63.6 | 37.7 (21.9/53.5) | 50.6 | 0 | 净 | — |
+| rand30k_300 (#13) | 59.0 | 62.9 | 33.3 (24.1/42.5) | 51.8 | 0 | 净 | — |
+
+新集群三臂结论（细节见 exp 记录）：
+
+- **没有一臂超过 base**。rand30k 损失最小（−2 左右），dadv 稳定 −5 到 −7，all100k −15 到 −23。retail 三臂都涨，airline/telecom 掉。
+- **telecom t1 大掉分的机制是过早转人工**。t1 是 mms/mobile_data 多故障排查题（平均串 4 个以上用户侧设备故障，只能靠多轮文字引导用户操作，agent 无工具可用），转人工即必败（base 转人工 sim 通过率 0/93）。
+  转人工率（t1）：base 40.8%（中位第 12 条消息后）→ dadv_260 66.2%（第 5 条）→ all100k_130 79.4%（第 1 条）;rand30k_300 反而降到 13.6%。t2 多为账户侧 service_issue，转人工常是正确终点，故损伤小。
+- **训练数据成分直接对应**：message 占比 rand30k 53% > dadv 25% > all100k 14%;转人工样本占比 rand30k 8.6% < dadv 17.5% < all100k 18.5%（难度过滤把转人工样本富集了约一倍，三个集合里出现最多的单个工具都是 transfer_to_human_agent）。
+- 训练**没有**引入复读或格式退化：25 万个 assistant turn 中无退化文本，finish_reason=length 仅 6 个，completion 中位 700-900 token。
+- **空输出**：报错为 `AssistantMessage must have either content or tool_calls`（vLLM 返回既无正文也无 tool call），高发于 airline 44/23/10/14 与 telecom t1 多故障题，retail 极少;base 与训练臂同量级，属模型+模板原生行为。
+  候选原因是思考段未闭合（nemotron_v3 parser 把全部输出归入 reasoning_content）或 tool call 写进了 think 里（约 2% 的 turn 的 reasoning 含 tool_call XML）;已给 tau2 `llm_utils.py` 加 `TAU2_EMPTY_DUMP` 补丁落盘原始 response，复现 job 结果待补。
 
 `*` 含 infra-error 任务定向重跑合并。tis-dadv0 (#8) 未解码。表 2 未列的其余全曲线 ckpt（gspo 110-600、tis 110-570、think 160/570/600、d60 200-785、
 ctpl/rmin 各步、base_cleantpl 对照）traces 同规律,见 `$TR/README.md`。
@@ -122,4 +162,5 @@ tis410 telecom 取第二轮（r2）;第一轮在 `voice_nano_tis_step410_telecom
 | 容器 | 训练 `nemo_rl.0821.sqsh`,评测 `nemo_rl.0803.sqsh`（`/lustre/fsw/.../yuekaiz/containers/`） |
 
 已知缺口：#8 tis-dadv0 未解码;#10 rmin 高 step（360/410）telecom t2 因超时缺失;
-gspo 290/410/520、d60 710/770/780-telecom 按指示取消未测;voice avg@4 未覆盖 tis410。
+gspo 290/410/520、d60 710/770/780-telecom 按指示取消未测;voice avg@4 未覆盖 tis410;
+新集群 #11 step_380、#12 step_220、#13 step_380 未解码;#11-#13 未做 voice 评测;空输出复现 job 结果待补。
