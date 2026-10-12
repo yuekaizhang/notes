@@ -97,19 +97,51 @@ rollouts load it via the config key
 only affects runs that opt in). Checkpoints trained with the clean template
 are also *decoded* with it.
 
-Rendered system prompt, before vs after (abbreviated):
+#### End-to-end walkthrough with a real training row (trajectory_id 107734)
 
-```
-# before (upstream template, training-time rendering)
-<|im_start|>system
-[{'type': 'text', 'text': 'You are a customer service agent that helps the
-user according to the <policy> provided below. ...'}]<|im_end|>
+Where exactly the corruption happens — the same row traced through every
+stage of the pipeline (verified live on 2026-10-12 by rendering the actual
+templates with jinja2):
 
-# after (sysfix template)
-<|im_start|>system
-You are a customer service agent that helps the user according to the
-<policy> provided below. ...<|im_end|>
-```
+1. **Dataset row (clean).** `train.jsonl` stores the system message as a
+   plain string:
+   ```json
+   {"role": "system", "content": "You are a customer service agent that helps the user.  The policy that determines how you should respond ... <policy> ... </policy>"}
+   ```
+2. **Rollout request (clean).** NeMo-Gym POSTs that message unchanged to
+   vLLM's OpenAI-compatible server.
+3. **vLLM normalization (shape change, reasonable behavior).** Because nano
+   is a multimodal model, vLLM canonicalizes every content into a parts
+   list to support interleaved media:
+   ```python
+   "content": [{"type": "text", "text": "You are a customer service agent that helps the user. ..."}]
+   ```
+   No information lost — but the type changed from `str` to `list[dict]`.
+4. **Chat-template rendering (the defect).** 2x2 matrix, actually rendered:
+
+   | | string input | parts-list input (what vLLM feeds) |
+   |---|---|---|
+   | upstream template | `<\|im_start\|>system\nYou are a customer service agent...` OK | `<\|im_start\|>system\n[{'type': 'text', 'text': 'You are a customer service agent...` **BUG** |
+   | sysfix template | same, OK | `<\|im_start\|>system\nYou are a customer service agent...` OK |
+
+   The upstream template's system branch assumes string content and pipes it
+   through Jinja's `| string`, which on a list prints the Python repr. So
+   the model's actual training prompt opens with `[{'type': 'text', 'text':
+   '...`, drags the full multi-thousand-token policy document inside quoted
+   escaped form, and closes with `'}]`. The sysfix template only adds a
+   flatten branch for list-shaped content; everything else is byte-identical.
+5. **Why it stayed invisible, and what it did.** The verifier scores only
+   the model's output vs the expected action — it never reads the system
+   segment — so rewards and training curves stayed perfectly normal.
+   The damage is environmental: across hundreds of thousands of rollouts
+   the policy lives inside this pseudo-structural format and bakes it in as
+   a high-frequency attractor; once anything pushes the policy far enough
+   off-manifold (TIS gradient muting, or a wholesale data swap), generation
+   slides into repetition loops over exactly these structural tokens.
+
+So: dataset clean, request clean, vLLM normalization legitimate — **the bug
+is one missing list-shape branch in the template's system block** (the BUG
+cell in the matrix above is the origin of the entire Part 1 story).
 
 A base-model control confirmed the rendering does not move scores by itself
 (airline text 60.8 clean vs 58.5 dirty, per-task paired n.s.; voice airline
