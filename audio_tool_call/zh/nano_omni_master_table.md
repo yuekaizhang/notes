@@ -12,7 +12,7 @@
   `--reasoning-parser nemotron_v3`），唯一例外是 nothink 消融臂。
 - **HF ckpt** 统一在 `$EVAL/ckpts/`（`$EVAL=/lustre/fsw/portfolios/coreai/users/yuekaiz/pivot_rl/tau2_eval`）。
 - **评测协议**：tau2 文本 = luna 用户模拟器、每任务 4 trials 取均值、telecom 拆两半场合并、
-  **空输出算 0 分计入分母**（表内以 Infra Error 形式统计）；tau-voice = 半双工自研装置
+  **空输出剔除后取均值**（2026-10-12 勘误,详见表 2 头注；表内以 Infra Error 形式统计数量）；tau-voice = 半双工自研装置
   （github.com/yuekaizhang/tau2-bench 分支 `voice-halfduplex`），**空输出不计分**（报覆盖率 n_scored/n_jobs）。
 - **模板**：脏 = 上游模板（system 渲染成 Python list-repr,训练时的实际输入）；净 = sysfix 模板
   （`examples/nemo_gym/nano_omni_chat_template_sysfix.jinja`）。铁律：干净训干净测、脏训脏测。
