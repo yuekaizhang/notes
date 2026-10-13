@@ -151,8 +151,6 @@ Per domain (SFT18k line, before RL → best after RL):
 | retail | 52.41 | 53.51 | +1.1, unrecoverable |
 | telecom | 23.46 | 28.51 | +5.1, still far below the base-start line (~45) |
 
-Voice is equally depressed: SFT18k voice avg@4 = 28.7 (38.0/28.5/19.5) vs. base 38.1.
-
 ## Conclusions
 
 1. **The SFT intermediate checkpoint is a strictly worse starting point than base;
@@ -166,6 +164,3 @@ Voice is equally depressed: SFT18k voice avg@4 = 28.7 (38.0/28.5/19.5) vs. base 
    knowledge, tool-argument accuracy) and the same RL barely moves them. This mirrors
    Part 1: this single-step pivot RL reshapes the action prior; it does not add
    capability.
-3. The checkpoint is a text-only SFT intermediate and its speech side is damaged too
-   (voice −9.4). "SFT first, patch voice back with RL afterwards" does not work from
-   this checkpoint.
