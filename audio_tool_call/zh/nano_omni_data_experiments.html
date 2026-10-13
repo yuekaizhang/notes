@@ -1,0 +1,709 @@
+<title>nano-omni 数据实验全景</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --surface-2: #f3f2ee;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --fc: #2a78d6;        /* series 1: function_call */
+  --msg: #eb6834;       /* series 2: message */
+  --accent: #2a78d6;
+  --good: #0ca30c;
+  --warn: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --band: rgba(42,120,214,0.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #232321;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --fc: #3987e5;
+    --msg: #d95926;
+    --accent: #3987e5;
+    --band: rgba(57,135,229,0.12);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #232321;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255,255,255,0.10);
+  --fc: #3987e5;
+  --msg: #d95926;
+  --accent: #3987e5;
+  --band: rgba(57,135,229,0.12);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.65;
+  font-size: 15px;
+}
+body[data-lang="zh"] .en { display: none !important; }
+body[data-lang="en"] .zh { display: none !important; }
+
+#langbtn {
+  position: fixed; top: 14px; right: 16px; z-index: 20;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--axis); border-radius: 999px;
+  padding: 5px 14px; font-size: 13px; font-weight: 600;
+  font-family: inherit; cursor: pointer;
+}
+#langbtn:hover { background: var(--surface-2); }
+#langbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+main { max-width: 1120px; margin: 0 auto; padding: 44px 28px 72px; }
+header.page { margin-bottom: 8px; }
+.eyebrow {
+  font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; margin-bottom: 10px;
+}
+h1 { font-size: 27px; font-weight: 700; margin: 0 0 10px; letter-spacing: -0.01em; text-wrap: balance; }
+.lede { color: var(--ink-2); max-width: 46em; margin: 0; }
+h2 { font-size: 18.5px; font-weight: 700; margin: 52px 0 6px; letter-spacing: -0.005em; }
+h2 .qnum { color: var(--muted); font-weight: 600; font-size: 13px; margin-right: 8px; letter-spacing: 0.08em; }
+.sub { color: var(--ink-2); font-size: 13.5px; margin: 0 0 18px; max-width: 52em; }
+section { margin-top: 8px; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px;
+}
+.scrollx { overflow-x: auto; }
+figure { margin: 0; }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+svg text { font-family: inherit; }
+.svg-title { font-size: 13px; font-weight: 700; fill: var(--ink); }
+.svg-sub { font-size: 10.5px; fill: var(--muted); }
+.svg-meta { font-size: 10.5px; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+.svg-verdict { font-size: 11px; font-weight: 700; fill: var(--ink); }
+.svg-axis { font-size: 10.5px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.svg-lbl { font-size: 11px; fill: var(--ink-2); }
+.svg-lbl-strong { font-size: 11.5px; font-weight: 700; fill: var(--ink); }
+.node { fill: var(--surface-2); stroke: var(--border); }
+.pool { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
+.edge { fill: none; stroke: var(--axis); stroke-width: 1.4; }
+
+.legend { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; font-size: 12.5px; color: var(--ink-2); margin: 0 0 14px; }
+.legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.tile .k { font-size: 12px; color: var(--muted); }
+.tile .v { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+.tile .d { font-size: 12px; color: var(--ink-2); }
+
+.bars { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+.brow { display: grid; grid-template-columns: 230px 1fr 64px; gap: 12px; align-items: center; }
+.brow .name { font-size: 13px; font-weight: 600; }
+.brow .name small { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+.bar { display: flex; gap: 2px; height: 20px; border-radius: 4px; overflow: hidden; }
+.bar > span { display: block; height: 100%; }
+.bar .s-fc { background: var(--fc); }
+.bar .s-msg { background: var(--msg); }
+.brow .pct { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th { text-align: left; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--axis); white-space: nowrap; }
+td { padding: 9px 12px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+td .code { font-size: 11.5px; color: var(--muted); display: block; }
+td .note { font-size: 12px; color: var(--muted); display: block; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.chip::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c, var(--muted)); flex: none; }
+.chip.ok { --c: var(--good); }
+.chip.meh { --c: var(--warn); }
+.chip.bad { --c: var(--serious); }
+.chip.dead { --c: var(--critical); }
+
+.findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.finding { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+.finding h3 { margin: 0 0 6px; font-size: 14.5px; }
+.finding p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+.finding.key-answer { border-color: var(--accent); }
+.finding .tag { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 4px; }
+mark { background: var(--band); color: inherit; padding: 0 3px; border-radius: 3px; }
+
+.footnote { margin-top: 36px; font-size: 12.5px; color: var(--muted); max-width: 60em; border-top: 1px solid var(--grid); padding-top: 14px; }
+.footnote p { margin: 4px 0; }
+code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.92em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+
+#tip {
+  position: fixed; pointer-events: none; z-index: 10; display: none;
+  background: var(--ink); color: var(--page); font-size: 12px; line-height: 1.5;
+  padding: 7px 10px; border-radius: 6px; max-width: 300px;
+}
+.hoverable { cursor: default; }
+</style>
+
+<script>
+document.body.dataset.lang = localStorage.getItem('nano-omni-lang') || 'zh';
+</script>
+
+<button id="langbtn" type="button" aria-label="切换语言 / switch language">
+  <span class="zh">EN</span><span class="en">中文</span>
+</button>
+
+<main>
+<header class="page">
+  <div class="eyebrow">
+    <span class="zh">nano-omni · Pivot-RL 数据实验记录 · 截至 2026-10-12</span>
+    <span class="en">nano-omni · Pivot-RL data experiments · as of 2026-10-12</span>
+  </div>
+  <h1>
+    <span class="zh">数据实验全景：一个原始池的七种切法</span>
+    <span class="en">Data experiments: seven slices of one pool</span>
+  </h1>
+  <p class="lede zh">所有训练集都来自同一个 1.4M 行的原始池。各实验只改两件事：用哪个模型给样本打难度分，以及按什么规则过滤或采样。结果表明这两件事实际是同一个旋钮：难度过滤会同时改变动作类型配比，而配比基本决定了训练结果。</p>
+  <p class="lede en">Every training set is carved from the same 1.4M-row pool. Across experiments only two things change: which model scores sample difficulty, and the filtering or sampling rule. These turned out to be the same knob: difficulty filtering also shifts the action-type mix, and that mix largely decides the outcome.</p>
+</header>
+
+<!-- ===================== 1. 族谱图 ===================== -->
+<section>
+  <h2><span class="qnum">01</span>
+    <span class="zh">数据族谱：每个实验用的是哪块数据</span>
+    <span class="en">Dataset lineage: which slice each experiment trained on</span>
+  </h2>
+  <p class="sub zh">每张卡片依次是：编号与名称（括号内为笔记里的原始代号）→ 过滤规则 → 行数与动作配比（<span style="color:var(--fc);font-weight:700">■</span> function_call / <span style="color:var(--msg);font-weight:700">■</span> message）→ 训练结果。</p>
+  <p class="sub en">Each card shows: ID and name (original codename from the lab notes in parentheses) → filtering rule → row count and action mix (<span style="color:var(--fc);font-weight:700">■</span> function_call / <span style="color:var(--msg);font-weight:700">■</span> message) → outcome.</p>
+  <div class="card scrollx">
+  <figure>
+  <svg viewBox="0 0 1120 652" role="img" aria-label="数据族谱 / dataset lineage" style="min-width:980px;width:100%;height:auto;display:block">
+    <defs>
+      <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L8,4 L0,8 z" fill="var(--axis)"/>
+      </marker>
+    </defs>
+
+    <!-- edges: pool -> col2 -->
+    <path class="edge" d="M184,330 C 250,330 250,72 314,72"  marker-end="url(#arr)"/>
+    <path class="edge" d="M184,330 C 250,330 250,196 314,196" marker-end="url(#arr)"/>
+    <path class="edge" d="M184,330 C 250,330 250,320 314,320" marker-end="url(#arr)"/>
+    <path class="edge" d="M184,330 C 250,330 250,444 314,444" marker-end="url(#arr)"/>
+    <path class="edge" d="M184,330 C 250,330 250,572 314,572" marker-end="url(#arr)"/>
+    <!-- edges: D2 -> children -->
+    <path class="edge" d="M620,196 C 700,196 700,132 794,132" marker-end="url(#arr)"/>
+    <path class="edge" d="M620,196 C 700,196 700,256 794,256" marker-end="url(#arr)"/>
+
+    <!-- pool -->
+    <g>
+      <rect class="pool" x="16" y="252" width="168" height="156" rx="10"/>
+      <text class="svg-title zh" x="32" y="282">原始池 1.4M 行</text>
+      <text class="svg-title en" x="32" y="282">Raw pool · 1.4M rows</text>
+      <text class="svg-sub" x="32" y="300">train_2_all_shuffled</text>
+      <text class="svg-sub zh" x="32" y="316">合成客服域专家轨迹，按步拆分</text>
+      <text class="svg-sub en" x="32" y="316">Expert trajectories, split per step</text>
+      <g>
+        <rect x="32" y="332" width="64.6" height="10" rx="2" fill="var(--fc)"/>
+        <rect x="98.6" y="332" width="71.4" height="10" rx="2" fill="var(--msg)"/>
+      </g>
+      <text class="svg-meta" x="32" y="358">fc 46.9% · msg 53.1%</text>
+      <text class="svg-meta zh" x="32" y="374">转人工 5.1%</text>
+      <text class="svg-meta en" x="32" y="374">transfer 5.1%</text>
+      <text class="svg-sub zh" x="32" y="394">所有训练集的唯一来源</text>
+      <text class="svg-sub en" x="32" y="394">Sole source of every set</text>
+    </g>
+
+    <!-- D1 rand30k -->
+    <g>
+      <rect class="node" x="314" y="18" width="306" height="108" rx="10"/>
+      <text class="svg-title zh" x="330" y="40">D1 · 随机对照 30K <tspan class="svg-sub">（rand30k）</tspan></text>
+      <text class="svg-title en" x="330" y="40">D1 · Random control, 30K <tspan class="svg-sub">(rand30k)</tspan></text>
+      <text class="svg-sub zh" x="330" y="57">随机抽样，不做任何难度过滤</text>
+      <text class="svg-sub en" x="330" y="57">Random sample, no difficulty filter</text>
+      <g><rect x="330" y="66" width="87.2" height="9" rx="2" fill="var(--fc)"/><rect x="419.2" y="66" width="98.8" height="9" rx="2" fill="var(--msg)"/></g>
+      <text class="svg-meta zh" x="330" y="90">fc 46.9% · msg 53.1% · 转人工 5.1%</text>
+      <text class="svg-meta en" x="330" y="90">fc 46.9% · msg 53.1% · transfer 5.1%</text>
+      <circle cx="336" cy="107" r="4.5" fill="var(--warn)"/>
+      <text class="svg-verdict zh" x="347" y="111">比基座低约 2 分，近中性</text>
+      <text class="svg-verdict en" x="347" y="111">≈2 pts below base, near neutral</text>
+    </g>
+
+    <!-- D2 HF 96K -->
+    <g>
+      <rect class="node" x="314" y="142" width="306" height="108" rx="10"/>
+      <rect x="314" y="142" width="306" height="108" rx="10" fill="none" stroke="var(--good)" stroke-width="1.6"/>
+      <text class="svg-title zh" x="330" y="164">D2 · 跨模型难度过滤 96K <tspan class="svg-sub">（HF 96K）</tspan></text>
+      <text class="svg-title en" x="330" y="164">D2 · Cross-model filter, 96K <tspan class="svg-sub">(HF 96K)</tspan></text>
+      <text class="svg-sub zh" x="330" y="181">Super3 打难度分，保留 score ≤ 0.6</text>
+      <text class="svg-sub en" x="330" y="181">Scored by Super3, keep score ≤ 0.6</text>
+      <g><rect x="330" y="190" width="125.7" height="9" rx="2" fill="var(--fc)"/><rect x="457.7" y="190" width="60.3" height="9" rx="2" fill="var(--msg)"/></g>
+      <text class="svg-meta zh" x="330" y="214">fc 67.6% · msg 32.4% · 转人工 8.0%</text>
+      <text class="svg-meta en" x="330" y="214">fc 67.6% · msg 32.4% · transfer 8.0%</text>
+      <circle cx="336" cy="231" r="4.5" fill="var(--good)"/>
+      <text class="svg-verdict zh" x="347" y="235">唯一不掉分的数据（0 ~ +1.4）</text>
+      <text class="svg-verdict en" x="347" y="235">Only set that never loses to base (0 to +1.4)</text>
+    </g>
+
+    <!-- D3 d60 -->
+    <g>
+      <rect class="node" x="314" y="266" width="306" height="108" rx="10"/>
+      <text class="svg-title zh" x="330" y="288">D3 · 论文原版数据 314K <tspan class="svg-sub">（d60）</tspan></text>
+      <text class="svg-title en" x="330" y="288">D3 · Paper's original set, 314K <tspan class="svg-sub">(d60)</tspan></text>
+      <text class="svg-sub zh" x="330" y="305">Qwen3-think 自己打分 ≤ 0.6（对 nano 等于跨模型）</text>
+      <text class="svg-sub en" x="330" y="305">Qwen3-think self-scored ≤ 0.6 (cross-model for nano)</text>
+      <g><rect x="330" y="314" width="132" height="9" rx="2" fill="var(--fc)"/><rect x="464" y="314" width="54" height="9" rx="2" fill="var(--msg)"/></g>
+      <text class="svg-meta zh" x="330" y="338">fc 71.0% · msg 29.0% · 转人工 6.1%</text>
+      <text class="svg-meta en" x="330" y="338">fc 71.0% · msg 29.0% · transfer 6.1%</text>
+      <circle cx="336" cy="355" r="4.5" fill="var(--warn)"/>
+      <text class="svg-verdict zh" x="347" y="359">+2.4 系宽松口径，严格口径下撤回</text>
+      <text class="svg-verdict en" x="347" y="359">+2.4 only under lenient scoring; withdrawn</text>
+    </g>
+
+    <!-- D6 all_100k -->
+    <g>
+      <rect class="node" x="314" y="390" width="306" height="108" rx="10"/>
+      <text class="svg-title zh" x="330" y="412">D6 · 自画像直接过滤 25K <tspan class="svg-sub">（all_100k）</tspan></text>
+      <text class="svg-title en" x="330" y="412">D6 · Self-scored filter, 25K <tspan class="svg-sub">(all_100k)</tspan></text>
+      <text class="svg-sub zh" x="330" y="429">nano 自己打分 ≤ 0.6，直接过滤原始池</text>
+      <text class="svg-sub en" x="330" y="429">nano self-scored ≤ 0.6, applied to the raw pool</text>
+      <g><rect x="330" y="438" width="160.3" height="9" rx="2" fill="var(--fc)"/><rect x="492.3" y="438" width="25.7" height="9" rx="2" fill="var(--msg)"/></g>
+      <text class="svg-meta zh" x="330" y="462">fc 86.2% · msg 13.8% · 转人工 10.5%</text>
+      <text class="svg-meta en" x="330" y="462">fc 86.2% · msg 13.8% · transfer 10.5%</text>
+      <circle cx="336" cy="479" r="4.5" fill="var(--critical)"/>
+      <text class="svg-verdict zh" x="347" y="483">−15 ~ −23，所有实验中最差</text>
+      <text class="svg-verdict en" x="347" y="483">−15 to −23, worst of all arms</text>
+    </g>
+
+    <!-- D7 strat60k -->
+    <g>
+      <rect class="node" x="314" y="514" width="306" height="120" rx="10"/>
+      <text class="svg-title zh" x="330" y="536">D7 · 配比受控分层采样 60K×3 <tspan class="svg-sub">（strat60k）</tspan></text>
+      <text class="svg-title en" x="330" y="536">D7 · Ratio-locked sampling, 60K×3 <tspan class="svg-sub">(strat60k)</tspan></text>
+      <text class="svg-sub zh" x="330" y="553">按 nano 打分分层采样，配比锁定 fc65 / msg30 / 转5</text>
+      <text class="svg-sub en" x="330" y="553">Stratified by nano score, mix locked at fc65/msg30/tr5</text>
+      <g><rect x="330" y="562" width="122.2" height="9" rx="2" fill="var(--fc)"/><rect x="454.2" y="562" width="63.8" height="9" rx="2" fill="var(--msg)"/></g>
+      <text class="svg-meta zh" x="330" y="586">三个版本只有 message 层成分不同</text>
+      <text class="svg-meta en" x="330" y="586">Three variants differ only in the message layer</text>
+      <circle cx="336" cy="603" r="4.5" fill="var(--serious)"/>
+      <text class="svg-verdict zh" x="347" y="607">v1/v3 约 −3，撞上原始池质量上限 52–53</text>
+      <text class="svg-verdict en" x="347" y="607">v1/v3 ≈ −3, hit the pool's quality ceiling 52–53</text>
+      <text class="svg-meta zh" x="347" y="624">v2 的 telecom 崩掉（工具幻觉）→ 46.9</text>
+      <text class="svg-meta en" x="347" y="624">v2: telecom collapses (tool hallucination) → 46.9</text>
+    </g>
+
+    <!-- D4 dadv -->
+    <g>
+      <rect class="node" x="794" y="78" width="306" height="108" rx="10"/>
+      <text class="svg-title zh" x="810" y="100">D4 · 自画像二次过滤 29K <tspan class="svg-sub">（dadv）</tspan></text>
+      <text class="svg-title en" x="810" y="100">D4 · Self-scored refilter, 29K <tspan class="svg-sub">(dadv)</tspan></text>
+      <text class="svg-sub zh" x="810" y="117">在 D2 上再用 nano 打分，留 0 &lt; r ≤ 0.6（剔全零行）</text>
+      <text class="svg-sub en" x="810" y="117">D2 refiltered by nano score, 0 &lt; r ≤ 0.6 (drop all-wrong)</text>
+      <g><rect x="810" y="126" width="140" height="9" rx="2" fill="var(--fc)"/><rect x="952" y="126" width="46" height="9" rx="2" fill="var(--msg)"/></g>
+      <text class="svg-meta zh" x="810" y="150">fc 75.3% · msg 24.7% · 转人工 9.9%</text>
+      <text class="svg-meta en" x="810" y="150">fc 75.3% · msg 24.7% · transfer 9.9%</text>
+      <circle cx="816" cy="167" r="4.5" fill="var(--serious)"/>
+      <text class="svg-verdict zh" x="827" y="171">−4 ~ −7，两个集群上都复现为负</text>
+      <text class="svg-verdict en" x="827" y="171">−4 to −7, reproduced on two clusters</text>
+    </g>
+    <!-- D5 dadv0 -->
+    <g>
+      <rect class="node" x="794" y="202" width="306" height="108" rx="10"/>
+      <text class="svg-title zh" x="810" y="224">D5 · 二次过滤·含全零行 67K <tspan class="svg-sub">（dadv0）</tspan></text>
+      <text class="svg-title en" x="810" y="224">D5 · Refilter incl. all-wrong, 67K <tspan class="svg-sub">(dadv0)</tspan></text>
+      <text class="svg-sub zh" x="810" y="241">在 D2 上再用 nano 打分，留 ≤ 0.6（保留全零行）</text>
+      <text class="svg-sub en" x="810" y="241">D2 refiltered by nano score ≤ 0.6, all-wrong rows kept</text>
+      <g><rect x="810" y="250" width="162.4" height="9" rx="2" fill="var(--fc)"/><rect x="974.4" y="250" width="23.6" height="9" rx="2" fill="var(--msg)"/></g>
+      <text class="svg-meta zh" x="810" y="274">fc 87.3% · msg 12.7% · 转人工 10.5%</text>
+      <text class="svg-meta en" x="810" y="274">fc 87.3% · msg 12.7% · transfer 10.5%</text>
+      <circle cx="816" cy="291" r="4.5" fill="var(--critical)"/>
+      <text class="svg-verdict zh" x="827" y="295">DAPO 配方下行为崩坏（20.5 → 14.8）</text>
+      <text class="svg-verdict en" x="827" y="295">Behavioral collapse under DAPO (20.5 → 14.8)</text>
+    </g>
+
+    <!-- annotation: self-profile cluster -->
+    <g>
+      <rect x="794" y="330" width="306" height="64" rx="10" fill="none" stroke="var(--critical)" stroke-dasharray="5 4" stroke-width="1.2"/>
+      <text class="svg-lbl-strong zh" x="810" y="354">nano 自己打分再取 ≤0.6 的数据（D5 / D6）</text>
+      <text class="svg-lbl-strong en" x="810" y="354">Sets nano scored itself, then ≤0.6 (D5 / D6)</text>
+      <text class="svg-lbl zh" x="810" y="372">message 被压到 13–14%，是最差几个实验的共同点</text>
+      <text class="svg-lbl en" x="810" y="372">message squeezed to 13–14% — shared by the worst arms</text>
+    </g>
+  </svg>
+  <figcaption>
+    <span class="zh">图 1 · 数据族谱。绿框是唯一不掉分的数据；红色虚线框圈出"nano 自己打分、精准过滤"的产物。判决取各数据最优 ckpt 的 tau2 三域均值，对比同协议基座。</span>
+    <span class="en">Fig. 1 · Dataset lineage. Green frame: the only set that never loses to base. Dashed red frame: the sets nano scored itself and filtered precisely. Verdicts use each set's best checkpoint on the tau2 3-domain average vs. the same-protocol baseline.</span>
+  </figcaption>
+  </figure>
+  </div>
+</section>
+
+<!-- ===================== 2. 倒 U ===================== -->
+<section>
+  <h2><span class="qnum">02</span>
+    <span class="zh">message 占比与训练收益：倒 U 关系</span>
+    <span class="en">Message share vs. training gain: an inverted U</span>
+  </h2>
+  <p class="sub zh">横轴：训练集中 message 行的占比。纵轴：该数据最优 ckpt 的 tau2 三域均值相对同协议基座的变化。message 太多，判分器全部放行，没有梯度；太少，模型不再对用户说话。只有 29–32% 这一段不掉分。</p>
+  <p class="sub en">X-axis: share of message rows in the training set. Y-axis: best-checkpoint tau2 3-domain average vs. the same-protocol baseline. Too many message rows and the verifier passes them all, so there is no gradient; too few and the model stops talking to the user. Only the 29–32% range holds up.</p>
+  <div class="card scrollx">
+  <figure>
+  <svg viewBox="0 0 780 430" role="img" aria-label="散点图：message 占比与收益呈倒 U / scatter: message share vs gain, inverted U" style="min-width:680px;width:100%;height:auto;display:block">
+    <rect x="364" y="30" width="50" height="340" fill="var(--band)"/>
+    <text class="svg-axis zh" x="389" y="392" text-anchor="middle" fill="var(--accent)" font-weight="700">不掉分区 29–32%</text>
+    <text class="svg-axis en" x="389" y="392" text-anchor="middle" fill="var(--accent)" font-weight="700">holds up: 29–32%</text>
+    <g stroke="var(--grid)" stroke-width="1">
+      <line x1="70" y1="38.1"  x2="720" y2="38.1"/>
+      <line x1="70" y1="159.5" x2="720" y2="159.5"/>
+      <line x1="70" y1="240.5" x2="720" y2="240.5"/>
+      <line x1="70" y1="321.4" x2="720" y2="321.4"/>
+    </g>
+    <line x1="70" y1="78.6" x2="720" y2="78.6" stroke="var(--axis)" stroke-width="1.6"/>
+    <text class="svg-axis" x="62" y="42"  text-anchor="end">+5</text>
+    <text class="svg-axis zh" x="62" y="82.6" text-anchor="end">0（基座）</text>
+    <text class="svg-axis en" x="62" y="82.6" text-anchor="end">0 (base)</text>
+    <text class="svg-axis" x="62" y="163.5" text-anchor="end">−10</text>
+    <text class="svg-axis" x="62" y="244.5" text-anchor="end">−20</text>
+    <text class="svg-axis" x="62" y="325.4" text-anchor="end">−30</text>
+    <g stroke="var(--axis)" stroke-width="1">
+      <line x1="131.3" y1="370" x2="131.3" y2="375"/><line x1="254" y1="370" x2="254" y2="375"/>
+      <line x1="376.6" y1="370" x2="376.6" y2="375"/><line x1="499.2" y1="370" x2="499.2" y2="375"/>
+      <line x1="621.9" y1="370" x2="621.9" y2="375"/>
+    </g>
+    <line x1="70" y1="370" x2="720" y2="370" stroke="var(--axis)" stroke-width="1.2"/>
+    <text class="svg-axis" x="131.3" y="390" text-anchor="middle">10%</text>
+    <text class="svg-axis" x="254"   y="390" text-anchor="middle">20%</text>
+    <text class="svg-axis" x="499.2" y="390" text-anchor="middle">40%</text>
+    <text class="svg-axis" x="621.9" y="390" text-anchor="middle">50%</text>
+    <text class="svg-axis zh" x="740" y="418" text-anchor="end">训练集 message 行占比 →</text>
+    <text class="svg-axis en" x="740" y="418" text-anchor="end">share of message rows →</text>
+    <text class="svg-axis zh" x="20" y="22">Δ tau2 三域均值（相对同协议基座）</text>
+    <text class="svg-axis en" x="20" y="22">Δ tau2 3-domain average vs. baseline</text>
+
+    <path d="M160,338 C 250,150 320,72 388,64 C 470,58 580,78 668,92" fill="none" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="2 5" opacity="0.55"/>
+
+    <g>
+      <circle class="hoverable" cx="364.3" cy="59.1" r="6" fill="var(--surface)" stroke="var(--fc)" stroke-width="2.2"
+        data-tip-zh="D3 论文原版数据（d60）：msg 29.0%。step380 宽松口径 +2.4，但 airline 空输出占 25%，按严格口径（空输出计 0）重算为 −2 ~ −3，结论撤回。"
+        data-tip-en="D3, the paper's original set (d60): msg 29.0%. Step 380 scores +2.4 under lenient accounting, but 25% of airline sims returned empty output; under strict accounting (empties count as 0) it lands at −2 to −3, so the gain was withdrawn."/>
+      <text class="svg-lbl zh" x="354" y="48" text-anchor="end">D3 +2.4（严格口径撤回）</text>
+      <text class="svg-lbl en" x="354" y="48" text-anchor="end">D3 +2.4 (withdrawn under strict)</text>
+
+      <circle class="hoverable" cx="406" cy="67.2" r="7" fill="var(--fc)" stroke="var(--surface)" stroke-width="2"
+        data-tip-zh="D2 跨模型难度过滤（HF 96K）：msg 32.4%。脏模板最优 ckpt 57.28（+1.4）；净模板最优 56.08（约 0）。所有数据里唯一全程不低于基座的。"
+        data-tip-en="D2, cross-model filter (HF 96K): msg 32.4%. Best checkpoint 57.28 (+1.4) with the legacy template, 56.08 (≈0) with the fixed one. The only set that never drops below base."/>
+      <text class="svg-lbl-strong zh" x="420" y="63">D2 +1.4 · 唯一不掉分</text>
+      <text class="svg-lbl-strong en" x="420" y="63">D2 +1.4 · only set above base</text>
+
+      <circle class="hoverable" cx="659.9" cy="89.9" r="6" fill="var(--fc)" stroke="var(--surface)" stroke-width="2"
+        data-tip-zh="D1 随机对照（rand30k）：不过滤，msg 53.1%。最优 52.2，对比新集群基座 53.6，约 −1.4，近中性。"
+        data-tip-en="D1, random control (rand30k): no filter, msg 53.1%. Best 52.2 vs. the new-cluster baseline 53.6, about −1.4 — near neutral."/>
+      <text class="svg-lbl zh" x="649" y="110" text-anchor="end">D1 −1.4（无过滤对照）</text>
+      <text class="svg-lbl en" x="649" y="110" text-anchor="end">D1 −1.4 (unfiltered control)</text>
+
+      <circle class="hoverable" cx="376.6" cy="104.5" r="6" fill="var(--fc)" stroke="var(--surface)" stroke-width="2"
+        data-tip-zh="D7 分层采样 v1/v3（strat60k）：配比锁定在 msg 约 30%。最优 52.3 / 52.7，仍比老集群基座 55.9 低 3 分左右——配比对了，还是撞上原始池的质量上限。"
+        data-tip-en="D7 stratified v1/v3 (strat60k): mix locked at msg ≈30%. Best 52.3 / 52.7, still ~3 pts below the 55.9 baseline — the mix is right, but the pool's quality ceiling remains."/>
+      <text class="svg-lbl zh" x="390" y="108">D7 v1/v3 −3（质量上限）</text>
+      <text class="svg-lbl en" x="390" y="108">D7 v1/v3 −3 (quality ceiling)</text>
+
+      <circle class="hoverable" cx="311.6" cy="123.1" r="6" fill="var(--fc)" stroke="var(--surface)" stroke-width="2"
+        data-tip-zh="D4 自画像二次过滤（dadv）：msg 24.7%。老集群 51.7，新集群 47–50.6，两边独立复现，稳定低于基座 4–7 分。"
+        data-tip-en="D4, self-scored refilter (dadv): msg 24.7%. 51.7 on the old cluster, 47–50.6 on the new one — independently reproduced, consistently 4–7 pts below base."/>
+      <text class="svg-lbl zh" x="301" y="127" text-anchor="end">D4 −4~−7</text>
+      <text class="svg-lbl en" x="301" y="127" text-anchor="end">D4 −4 to −7</text>
+
+      <circle class="hoverable" cx="376.6" cy="149.8" r="6" fill="var(--surface)" stroke="var(--fc)" stroke-width="2.2"
+        data-tip-zh="D7 v2：message 层只用天然全对的行。telecom 崩在设备工具幻觉上（19 分，too_many_errors 计 0），三域 46.9。说明混合得分的 message 行承担着'该说话时别调工具'的训练信号。"
+        data-tip-en="D7 v2: the message layer uses only naturally all-correct rows. Telecom collapses on tool hallucination (19 pts, too_many_errors counted as 0), 3-domain 46.9. Mixed-score message rows carry the 'talk, don't call a tool' signal."/>
+      <text class="svg-lbl zh" x="390" y="153">D7 v2 −8.8（telecom 崩）</text>
+      <text class="svg-lbl en" x="390" y="153">D7 v2 −8.8 (telecom collapse)</text>
+
+      <circle class="hoverable" cx="177.9" cy="232.4" r="6" fill="var(--fc)" stroke="var(--surface)" stroke-width="2"
+        data-tip-zh="D6 自画像直接过滤（all_100k）：msg 仅 13.8%，转人工样本 10.5%。得分 30.9–38.9，低基座 15–23 分。telecom t1 的转人工率训到 79%，第 1 条消息就转。"
+        data-tip-en="D6, self-scored filter on the pool (all_100k): msg only 13.8%, transfer rows 10.5%. Scores 30.9–38.9, i.e. 15–23 pts below base. On telecom t1 the transfer-to-human rate reaches 79%, often at the very first message."/>
+      <text class="svg-lbl zh" x="192" y="236">D6 −15~−23</text>
+      <text class="svg-lbl en" x="192" y="236">D6 −15 to −23</text>
+
+      <circle class="hoverable" cx="164.4" cy="345.7" r="6" fill="var(--fc)" stroke="var(--surface)" stroke-width="2"
+        data-tip-zh="D5 × DAPO：msg 12.7%，再叠加动态采样对全错组的放大，行为崩坏，20.5 → 14.8。重复调用刷屏，越训越差。"
+        data-tip-en="D5 × DAPO: msg 12.7%, plus dynamic sampling amplifying the all-wrong groups. Behavioral collapse, 20.5 → 14.8 — repeated tool calls flood the transcript and it keeps getting worse."/>
+      <text class="svg-lbl zh" x="178" y="350">D5 × DAPO 崩坏（−35）</text>
+      <text class="svg-lbl en" x="178" y="350">D5 × DAPO collapse (−35)</text>
+    </g>
+  </svg>
+  <figcaption>
+    <span class="zh">图 2 · 每个点是一个数据臂的最优 ckpt，悬停可看明细。空心点表示结论有保留（D3 口径问题、D7 v2 单域崩坏）。虚线为示意趋势。Δ 以各臂同协议基座为 0 点。</span>
+    <span class="en">Fig. 2 · Each dot is one data arm's best checkpoint; hover for details. Hollow dots carry caveats (D3's metric issue, D7 v2's single-domain collapse). The dashed curve is a visual guide. Δ is measured against each arm's same-protocol baseline.</span>
+  </figcaption>
+  </figure>
+  </div>
+</section>
+
+<!-- ===================== 3. 机制 ===================== -->
+<section>
+  <h2><span class="qnum">03</span>
+    <span class="zh">机制：难度过滤为什么会剔掉 message</span>
+    <span class="en">Mechanism: why difficulty filtering strips out message rows</span>
+  </h2>
+  <p class="sub zh">判分器对期望动作是 message 的行只检查"是否在说话"，不判内容，所以 message 行普遍高分、function_call 行普遍低分。任何"保留低分行"的过滤规则都会定向剔除 message；打分模型越准，剔得越干净。</p>
+  <p class="sub en">For rows whose expected action is a message, the verifier only checks that the model said something — content is not judged. So message rows score high and function_call rows score low. Any "keep the low-scoring rows" rule therefore strips out message rows, and the more accurate the scoring model, the cleaner the strip.</p>
+
+  <div class="tiles">
+    <div class="tile">
+      <div class="k"><span class="zh">message 行 · nano 平均得分</span><span class="en">message rows · mean nano score</span></div>
+      <div class="v" style="color:var(--msg)">0.724</div>
+      <div class="d"><span class="zh">只要说话就给分</span><span class="en">any reply earns the reward</span></div>
+    </div>
+    <div class="tile">
+      <div class="k"><span class="zh">function_call 行 · nano 平均得分</span><span class="en">function_call rows · mean nano score</span></div>
+      <div class="v" style="color:var(--fc)">0.168</div>
+      <div class="d"><span class="zh">工具名和参数要全对</span><span class="en">name and all arguments must match</span></div>
+    </div>
+    <div class="tile">
+      <div class="k"><span class="zh">转人工行 · nano 平均得分</span><span class="en">transfer rows · mean nano score</span></div>
+      <div class="v">0.161</div>
+      <div class="d"><span class="zh">低分，被难度过滤富集近一倍</span><span class="en">low score; filtering nearly doubles their share</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="legend">
+      <span class="key"><span class="swatch" style="background:var(--fc)"></span>function_call</span>
+      <span class="key"><span class="swatch" style="background:var(--msg)"></span>message</span>
+      <span style="color:var(--muted)">
+        <span class="zh">D2（96K）按 nano 自打分分桶后的动作构成</span>
+        <span class="en">Action mix of D2 (96K), bucketed by nano's own score</span>
+      </span>
+    </div>
+    <div class="bars">
+      <div class="brow">
+        <div class="name">
+          <span class="zh">全零桶（r = 0）<small>37,984 行 · D5 比 D4 多出的部分</small></span>
+          <span class="en">All-wrong bucket (r = 0)<small>37,984 rows · what D5 adds over D4</small></span>
+        </div>
+        <div class="bar hoverable"
+          data-tip-zh="全零桶：nano 16 次尝试全错的行。96.4% 是 function_call，message 只有 3.6%。'太难'的行几乎全是工具调用。"
+          data-tip-en="All-wrong bucket: rows nano failed on all 16 attempts. 96.4% are function_call, message only 3.6% — the 'too hard' rows are almost all tool calls.">
+          <span class="s-fc" style="width:96.4%"></span><span class="s-msg" style="width:3.6%"></span>
+        </div>
+        <div class="pct">fc 96.4%</div>
+      </div>
+      <div class="brow">
+        <div class="name">
+          <span class="zh">混合桶（0 &lt; r ≤ 0.6）<small>28,538 行 · 即 D4</small></span>
+          <span class="en">Mixed bucket (0 &lt; r ≤ 0.6)<small>28,538 rows · this is D4</small></span>
+        </div>
+        <div class="bar hoverable"
+          data-tip-zh="混合桶：有学习信号的行。fc 75.3% / msg 24.7%，message 已经低于 29% 的下限。"
+          data-tip-en="Mixed bucket: rows with a learnable signal. fc 75.3% / msg 24.7% — already below the 29% lower bound.">
+          <span class="s-fc" style="width:75.3%"></span><span class="s-msg" style="width:24.7%"></span>
+        </div>
+        <div class="pct">fc 75.3%</div>
+      </div>
+      <div class="brow">
+        <div class="name">
+          <span class="zh">被丢弃桶（r &gt; 0.6）<small>29,934 行 · 被判"太简单"</small></span>
+          <span class="en">Dropped bucket (r &gt; 0.6)<small>29,934 rows · deemed "too easy"</small></span>
+        </div>
+        <div class="bar hoverable"
+          data-tip-zh="被丢弃桶：nano 得分大于 0.6、被难度过滤丢掉的行。76.2% 是 message——过滤丢掉的几乎都是 message 行。"
+          data-tip-en="Dropped bucket: rows scoring above 0.6 that the filter discards. 76.2% are message rows — the filter throws away almost nothing else.">
+          <span class="s-fc" style="width:23.8%"></span><span class="s-msg" style="width:76.2%"></span>
+        </div>
+        <div class="pct">fc 23.8%</div>
+      </div>
+    </div>
+    <figcaption style="font-size:12.5px;color:var(--muted);margin-top:12px">
+      <span class="zh">图 3 · 同一份 D2（96K），按 nano 自打分分桶。被丢弃的"简单行"里 76% 是 message，留下的"难行"几乎全是 function_call。难度过滤实际起的作用是剔除 message。</span>
+      <span class="en">Fig. 3 · The same D2 (96K), bucketed by nano's own score. 76% of the dropped "easy" rows are messages; the kept "hard" rows are almost all function calls. In practice, difficulty filtering removes messages.</span>
+    </figcaption>
+  </div>
+</section>
+
+<!-- ===================== 4. 总表 ===================== -->
+<section>
+  <h2><span class="qnum">04</span>
+    <span class="zh">结果速查表</span>
+    <span class="en">Results at a glance</span>
+  </h2>
+  <p class="sub zh">各数据臂最优 ckpt 的 tau2 三域均值（luna 用户模拟器协议，每任务 4 trials）。基座：老集群（旧模板）55.9，新集群（修复模板）53.6。</p>
+  <p class="sub en">Best-checkpoint tau2 3-domain averages per data arm (luna user-simulator protocol, 4 trials per task). Baselines: 55.9 on the old cluster (legacy template), 53.6 on the new cluster (fixed template).</p>
+  <div class="card scrollx" style="padding:6px 8px">
+    <table>
+      <thead><tr>
+        <th><span class="zh">训练集</span><span class="en">Training set</span></th>
+        <th><span class="zh">打分模型 / 过滤规则</span><span class="en">Scoring model / filter</span></th>
+        <th class="num"><span class="zh">msg 占比</span><span class="en">msg share</span></th>
+        <th class="num"><span class="zh">最优点（三域均值）</span><span class="en">Best (3-domain avg.)</span></th>
+        <th><span class="zh">判决</span><span class="en">Verdict</span></th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><b>D2</b> <span class="zh">跨模型难度过滤 96K</span><span class="en">Cross-model filter, 96K</span><span class="code">HF 96K</span></td>
+          <td><span class="zh">Super3 打分，≤0.6</span><span class="en">Super3-scored, ≤0.6</span></td>
+          <td class="num">32.4%</td>
+          <td class="num"><span class="zh">57.28（旧模板）<br>56.08（修复模板）</span><span class="en">57.28 (legacy tpl.)<br>56.08 (fixed tpl.)</span></td>
+          <td><span class="chip ok"><span class="zh">唯一不掉分</span><span class="en">never loses to base</span></span>
+            <span class="note zh">单点纪录 63.8 中约 8 分是旧模板的渲染适配，换模板解码只剩 56.1</span>
+            <span class="note en">the 63.8 record owes ~8 pts to legacy-template rendering; decoding with the fixed template gives 56.1</span></td>
+        </tr>
+        <tr>
+          <td><b>D3</b> <span class="zh">论文原版数据 314K</span><span class="en">Paper's original set, 314K</span><span class="code">d60</span></td>
+          <td><span class="zh">Qwen3-think 自打分，≤0.6</span><span class="en">Qwen3-think self-scored, ≤0.6</span></td>
+          <td class="num">29.0%</td>
+          <td class="num"><span class="zh">58.3（宽松）<br>53–54（严格）</span><span class="en">58.3 (lenient)<br>53–54 (strict)</span></td>
+          <td><span class="chip meh"><span class="zh">结论撤回</span><span class="en">withdrawn</span></span>
+            <span class="note zh">airline 空输出占 25%，严格口径不超基座</span>
+            <span class="note en">25% empty outputs on airline; below base under strict scoring</span></td>
+        </tr>
+        <tr>
+          <td><b>D1</b> <span class="zh">随机对照 30K</span><span class="en">Random control, 30K</span><span class="code">rand30k</span></td>
+          <td><span class="zh">不过滤</span><span class="en">no filter</span></td>
+          <td class="num">53.1%</td>
+          <td class="num">52.2</td>
+          <td><span class="chip meh"><span class="zh">−2，近中性</span><span class="en">−2, near neutral</span></span></td>
+        </tr>
+        <tr>
+          <td><b>D7</b> <span class="zh">分层采样 v1 / v3</span><span class="en">Stratified v1 / v3</span><span class="code">strat60k</span></td>
+          <td><span class="zh">nano 打分分层，配比锁 65/30/5</span><span class="en">nano-scored strata, mix locked 65/30/5</span></td>
+          <td class="num">≈30%</td>
+          <td class="num">52.3 / 52.7</td>
+          <td><span class="chip bad"><span class="zh">−3，撞质量上限</span><span class="en">−3, quality ceiling</span></span>
+            <span class="note zh">配比对了仍不及 D2，指向行级质量差异</span>
+            <span class="note en">right mix, still short of D2 — points to row-level quality</span></td>
+        </tr>
+        <tr>
+          <td><b>D7</b> <span class="zh">分层采样 v2</span><span class="en">Stratified v2</span><span class="code">strat60k v2</span></td>
+          <td><span class="zh">同上，message 层只留天然全对行</span><span class="en">same, message layer from all-correct rows only</span></td>
+          <td class="num">≈30%</td>
+          <td class="num">46.9</td>
+          <td><span class="chip dead"><span class="zh">telecom 崩</span><span class="en">telecom collapse</span></span>
+            <span class="note zh">设备工具幻觉；缺了混合得分的 message 行</span>
+            <span class="note en">tool hallucination; mixed-score message rows were missing</span></td>
+        </tr>
+        <tr>
+          <td><b>D4</b> <span class="zh">自画像二次过滤 29K</span><span class="en">Self-scored refilter, 29K</span><span class="code">dadv</span></td>
+          <td><span class="zh">D2 再过 nano 打分，剔全零行</span><span class="en">D2 refiltered by nano, all-wrong rows dropped</span></td>
+          <td class="num">24.7%</td>
+          <td class="num"><span class="zh">51.7（老）/ 50.6（新）</span><span class="en">51.7 (old) / 50.6 (new)</span></td>
+          <td><span class="chip bad">−4 ~ −7</span>
+            <span class="note zh">两个集群独立复现为负</span>
+            <span class="note en">reproduced on both clusters</span></td>
+        </tr>
+        <tr>
+          <td><b>D6</b> <span class="zh">自画像直接过滤 25K</span><span class="en">Self-scored filter, 25K</span><span class="code">all_100k</span></td>
+          <td><span class="zh">nano 打分 ≤0.6，直接过滤原始池</span><span class="en">nano-scored ≤0.6, on the raw pool</span></td>
+          <td class="num">13.8%</td>
+          <td class="num">30.9 – 38.9</td>
+          <td><span class="chip dead">−15 ~ −23</span>
+            <span class="note zh">telecom t1 第 1 条消息就转人工（79%）</span>
+            <span class="note en">79% transfer-to-human on telecom t1, often at message one</span></td>
+        </tr>
+        <tr>
+          <td><b>D5</b> <span class="zh">二次过滤·含全零 67K</span><span class="en">Refilter incl. all-wrong, 67K</span><span class="code">dadv0</span></td>
+          <td><span class="zh">D2 再过 nano 打分 ≤0.6，保留全零行</span><span class="en">D2 refiltered by nano ≤0.6, all-wrong rows kept</span></td>
+          <td class="num">12.7%</td>
+          <td class="num">20.5 → 14.8</td>
+          <td><span class="chip dead"><span class="zh">行为崩坏</span><span class="en">behavioral collapse</span></span>
+            <span class="note zh">DAPO 动态采样放大全错组里蒙对的噪声</span>
+            <span class="en note">DAPO's dynamic sampling amplifies lucky hits in all-wrong groups</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===================== 5. 结论 ===================== -->
+<section>
+  <h2><span class="qnum">05</span>
+    <span class="zh">结论</span>
+    <span class="en">Conclusions</span>
+  </h2>
+  <div class="findings">
+    <div class="finding key-answer">
+      <span class="tag"><span class="zh">核心问题</span><span class="en">the central question</span></span>
+      <h3><span class="zh">"score ≤ 0.6 的数据不能用"？只对了一半</span><span class="en">"Data scored ≤ 0.6 is unusable"? Half true</span></h3>
+      <p class="zh">问题不在阈值，在<mark>谁打的分</mark>。nano 自己打分再取 ≤0.6，message 只剩 13–14%，相关的三个实验全部变差；换 Super3 或 Qwen3 打分，同样的 0.6 阈值，message 保住 29–32%，是仅有的两份能用的数据。在这个判分器下，"难度画像要用被训模型自己打"这条经验要反着用。</p>
+      <p class="en">The threshold is not the problem — <mark>who does the scoring</mark> is. When nano scores itself and we keep ≤0.6, message rows drop to 13–14% and all three related arms get worse. With Super3 or Qwen3 doing the scoring, the same 0.6 threshold keeps message at 29–32%, and those are the only two usable sets. Under this verifier, the rule "difficulty profiles must come from the trained model itself" should be applied in reverse.</p>
+    </div>
+    <div class="finding">
+      <h3><span class="zh">难度过滤和配比过滤是同一件事</span><span class="en">Difficulty filtering and mix filtering are the same operation</span></h3>
+      <p class="zh">判分器给 message 行的平均分是 0.72，function_call 行是 0.17。按分数筛行，等于按动作类型筛行：被丢弃的行 76% 是 message，全零行 96% 是 function_call。所谓难度信号，大半是动作类型的影子。</p>
+      <p class="en">The verifier gives message rows a mean score of 0.72 and function_call rows 0.17. Filtering by score is filtering by action type: 76% of dropped rows are messages, 96% of all-wrong rows are function calls. Much of the "difficulty" signal is a shadow of the action type.</p>
+    </div>
+    <div class="finding">
+      <h3><span class="zh">message 占比 29–32% 是仅有的安全区</span><span class="en">A 29–32% message share is the only safe range</span></h3>
+      <p class="zh">53%（不过滤）近中性，29–32% 不掉分，25% 开始变差，13–14% 崩坏。message 内部还分两种成分：混合得分的行教模型"该说话时别调工具"（v2 缺它，telecom 崩），天然全对的行稳住 airline（v1 缺它，airline 伤）。两种都要。</p>
+      <p class="en">53% (unfiltered) is near neutral, 29–32% holds up, 25% starts to hurt, 13–14% collapses. The message rows also split into two roles: mixed-score rows teach "talk instead of calling a tool" (v2 lacked them and telecom collapsed); naturally all-correct rows stabilize airline (v1 lacked them and airline suffered). Both are needed.</p>
+    </div>
+    <div class="finding">
+      <h3><span class="zh">转人工样本被富集，telecom 为此买单</span><span class="en">Transfer rows get enriched; telecom pays for it</span></h3>
+      <p class="zh">转人工行得分低（0.16），难度过滤把它从 5% 富集到 10.5%，还是三个集合里出现最多的单个工具。训练后模型学会提前转人工：telecom t1 的转人工率从基座的 41% 升到 D4 的 66%、D6 的 79%（第 1 条消息就转），而 t1 的多故障排查题一转就输。</p>
+      <p class="en">Transfer rows score low (0.16), so difficulty filtering enriches them from 5% to 10.5% — the single most frequent tool in all three filtered sets. The trained model learns to hand off early: transfer rates on telecom t1 go from 41% (base) to 66% (D4) to 79% (D6, often at the first message), and t1's multi-fault troubleshooting tasks are lost the moment the hand-off happens.</p>
+    </div>
+    <div class="finding">
+      <h3><span class="zh">原始池本身有质量上限，约 52–53</span><span class="en">The raw pool has a quality ceiling around 52–53</span></h3>
+      <p class="zh">D7 三个版本在原始池上把配比、难度、message 成分全部控制到位，仍停在 52–53；D2 能到 56。排除掉所有已测变量后，剩下的解释是 Super3 过滤顺带做了行级质量筛选。原始池上的配比类变量已经试完了。</p>
+      <p class="en">The three D7 variants control mix, difficulty, and message composition on the raw pool and still stall at 52–53, while D2 reaches 56. With every measured variable ruled out, the remaining explanation is that the Super3 filter also performed row-level quality selection. The mix-related variables on the raw pool have been exhausted.</p>
+    </div>
+    <div class="finding">
+      <h3><span class="zh">下一步：改判分器的 message 判分</span><span class="en">Next: fix how the verifier scores messages</span></h3>
+      <p class="zh">画像混杂、DAPO 崩坏、message 行没有梯度（说话就满分，组内无方差），三件事的根源都是判分器不判 message 的内容。改掉它，难度分才第一次真正反映难度；不改，就回到 D2，数据侧到此定稿。</p>
+      <p class="en">The confounded difficulty profiles, the DAPO collapse, and the missing gradient on message rows (full marks for any reply means zero within-group variance) all trace back to the verifier not judging message content. Fix that, and difficulty scores reflect difficulty for the first time; otherwise, return to D2 and close out the data track here.</p>
+    </div>
+  </div>
+</section>
+
+<div class="footnote">
+  <p class="zh">口径说明：tau2 分数 = luna 用户模拟器、每任务 4 trials、telecom 两半场合并。"宽松/严格"指空输出 sim 剔除取均值 / 记 0 计入（2026-10-12 勘误）。旧模板指上游 chat template 把 system 渲染成 Python list 字面量，修复模板（sysfix）已拍平；D2 的 63.8 单点纪录经换模板交叉解码证实含约 8 分渲染适配，不可迁移。老集群（旧模板）基座 55.9，新集群（修复模板）基座 53.6，图 2 的 Δ 均对各自同协议基座。</p>
+  <p class="en">Protocol notes: tau2 scores use the luna user simulator, 4 trials per task, telecom's two halves merged. "Lenient / strict" refers to dropping empty-output sims vs. counting them as 0 (corrected 2026-10-12). "Legacy template" means the upstream chat template that rendered system content as a Python list literal; the fixed template (sysfix) flattens it. Cross-decoding showed ~8 pts of D2's 63.8 record came from legacy-template rendering and does not transfer. Baselines: 55.9 on the old cluster (legacy template), 53.6 on the new cluster (fixed template); Δ in Fig. 2 is against each arm's own same-protocol baseline.</p>
+  <p class="zh">数据来源：<code>others/notes/audio_tool_call/zh/nano_omni_master_table.md</code>（2026-10-12 版，表 1 / 2 / 2b / 4）。配比为 2026-09-18 统一重算口径。</p>
+  <p class="en">Source: <code>others/notes/audio_tool_call/zh/nano_omni_master_table.md</code> (2026-10-12 edition, tables 1 / 2 / 2b / 4). Action-mix percentages follow the 2026-09-18 unified recount.</p>
+</div>
+</main>
+
+<div id="tip" role="tooltip"></div>
+<script>
+(function () {
+  var btn = document.getElementById('langbtn');
+  btn.addEventListener('click', function () {
+    var next = document.body.dataset.lang === 'zh' ? 'en' : 'zh';
+    document.body.dataset.lang = next;
+    try { localStorage.setItem('nano-omni-lang', next); } catch (e) {}
+  });
+
+  var tip = document.getElementById('tip');
+  function show(e) {
+    var t = e.target.closest('[data-tip-zh]');
+    if (!t) { tip.style.display = 'none'; return; }
+    var lang = document.body.dataset.lang === 'en' ? 'en' : 'zh';
+    tip.textContent = t.getAttribute('data-tip-' + lang) || t.getAttribute('data-tip-zh');
+    tip.style.display = 'block';
+    var x = e.clientX + 14, y = e.clientY + 14;
+    var r = tip.getBoundingClientRect();
+    if (x + r.width > window.innerWidth - 8) x = e.clientX - r.width - 10;
+    if (y + r.height > window.innerHeight - 8) y = e.clientY - r.height - 10;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  document.addEventListener('mousemove', show);
+  document.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+})();
+</script>
